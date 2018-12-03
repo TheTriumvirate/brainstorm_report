@@ -1,0 +1,53 @@
+\documentclass{article}
+\usepackage[ampersand]{easylist}
+\usepackage[margin=3.5cm]{geometry}
+\usepackage{graphicx}
+\usepackage{parskip}
+\PassOptionsToPackage{hyphens}{url}\usepackage[pdftex]{hyperref}
+
+% Set font to something a bit neater.
+\usepackage{times}
+\renewcommand{\familydefault}{\sfdefault}
+
+\title{%
+Brainstorm\\
+\large Visualizing brain DTI data using particle systems}
+
+\author{Vegard Itland --- Robin Grundvåg --- Stian Soltvedt}
+\date{2018--12--14}
+
+% Helps with overfull hboxes
+\emergencystretch 3em%
+\hfuzz .5pt
+
+\begin{document}
+\maketitle
+\pagenumbering{arabic}
+
+\section*{Introduction}
+
+Brainstorm is an attempt to visualize brain diffusion tensor imaging (DTI) data using particle fields. While other contexts such as blood streams have been used with particle fields before, brain DTI data does not appear to have been attempted.
+
+\subsection*{Technology}
+
+Brainstorm is written using Rust. Rust was chosen due to our need for a low-level to easily work with OpenGL directly, while also wanting to try something new, and part of our team being uncomfortable with C/C++'s manual memory management and pointer arithmetic. This has the benefit of easily compiling to WebAssembly, which opened up the ability to also deploy Brainstorm to a website, without compromising on performance for the desktop version. Unfortunately, this was not as simple as imagined, but despite the extra work we did get it working as we wanted to.
+
+\section*{Implementation}
+
+\subsection*{Making Rust generic over platforms}
+
+% TODO
+
+\subsection*{Data format}
+
+% TODO
+
+\subsection*{OpenGL and WebGL}
+
+% TODO
+
+\section*{Conclusion}
+
+% TODO
+
+\end{document}
