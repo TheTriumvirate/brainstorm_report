@@ -119,7 +119,7 @@ Finally, in order to reduce the time it would take to process datasets, we param
 
 Furthermore, the following optimizations were added, possibly sacrificing complete accuracy for speed
 \begin{easylist}[itemize]
-& We used a nearest neighbor interpolation scheme to avoid having to do trilinear interpolation for every step\footnote{A recently discovered bug reveals that in fact, truncation was used instead of rounding (as nearest neighbor would do), but the result is presumed to be close enough for datasets of reasonably high resolutio}
+& We used a nearest neighbor interpolation scheme to avoid having to do trilinear interpolation for every step\footnote{A recently discovered bug reveals that in fact, truncation was used instead of rounding (as nearest neighbor would do), but the result is presumed to be close enough for datasets of reasonably high resolution}
 & If the particle's path reached a point where the FA value was zero, it would immediately disqualify the starting point path and move on, assuming that this particle would be destroyed when reaching this point while the program runs
 \end{easylist}
 
@@ -147,7 +147,7 @@ In order to visualize the vectorfield did we have to create our own rendering en
 
 Note: From this point forward will i just refer to OpenGL when speaking about our OpenGL / WebGL binding framework.
 
-\subsubsection{CPU and GPU based particle rendering}
+\subsubsection*{1. CPU and GPU based particle rendering}
 
 % NOTE: this is a pretty simplistic summary and doesn't account for lifetimes, high-pass filtering, low-pass filtering, etc
 The CPU based particle rendering was our first try at drawing particles and is based on having a list of particles in memory that we update and then draw. This list is represented as vertex points which we then update by performing a trilinear interpolation on the vector field based on the current particle position and then moving the particle in the direction of the vector. After all particles are updated do we send them to OpenGL in order to be drawn as points. We then expand the point to a quad by changing the point size to reflect the actual particle size. We should at this point be able to see the particles, but they would appear rectangular since the point is expanded to a quad. In order to make the particle round do we do a simple check whether the fragment position actually is inside the desired circle using the circle formula. If it is, then we keep the fragment, if it isn't, do we simply discard it.
@@ -155,18 +155,18 @@ The CPU based particle rendering was our first try at drawing particles and is b
 While the CPU based approach works well were we not able to support as many particles as we wanted. (Especially if we wanted to support streamlets, which is something we were discussing at the time.) We were thinking of maybe making the update process multithreaded, but since we wouldn't be able to support web did we decide against this. This is due to webassembly not supporting multithreading at the point of this project. We therefore decided to try a GPU based approach.
 
 % NOTE: Again, this is a simplified summary and does not account for any implementation details of the actual shaders used...
-The GPU based particle rendering ended up being a lot trickier to implement than we first anticipated, but we were glad we did it in the end. The way we implemented this is by having an array of textures, where the length of the array is the same as the length of the streamlets. Each texture would then represent the state of the particle system at a given frame and each pixel would represent the position of a single particle. In order to update the positions would we take one texture as input, a 3d texture representing the vector field as input, and make the output be the new state of the particles. We then had a vertex array where each vertex were mapped to a single pixel which were used in the vertex shader to get the position of the particle, we would then do a trilinear interpolation based on that position in the 3d texture and ouput the the particle position as a color on the output texture. In order to actually display the streamlets in world space do we have to do another render pass. In order to do this do we create another array of vertices that represent the vertices that should be drawn on the screen and also an array of indices based on the streamlets. We then pass these to OpenGL along with the texture array that represents the particle state. In order to get the positions of the vertices do we take the color of the texture and use it as the position in world space. In order to display the streamlets do we use the previous world states instead, based on the gl_VertexID, and simply place each segment of the streamlet on the earlier calculated position.
+The GPU based particle rendering ended up being a lot trickier to implement than we first anticipated, but we were glad we did it in the end. The way we implemented this is by having an array of textures, where the length of the array is the same as the length of the streamlets. Each texture would then represent the state of the particle system at a given frame and each pixel would represent the position of a single particle. In order to update the positions would we take one texture as input, a 3d texture representing the vector field as input, and make the output be the new state of the particles. We then had a vertex array where each vertex were mapped to a single pixel which were used in the vertex shader to get the position of the particle, we would then do a trilinear interpolation based on that position in the 3d texture and ouput the the particle position as a color on the output texture. In order to actually display the streamlets in world space do we have to do another render pass. In order to do this do we create another array of vertices that represent the vertices that should be drawn on the screen and also an array of indices based on the streamlets. We then pass these to OpenGL along with the texture array that represents the particle state. In order to get the positions of the vertices do we take the color of the texture and use it as the position in world space. In order to display the streamlets do we use the previous world states instead, based on the gl\_VertexID, and simply place each segment of the streamlet on the earlier calculated position.
 
 % NOTE: HOOOO BOOOY, i hope aaaaaaaannny of this makes aaaaaaaannny sense at all >.<
 
 Note: This is a simplified version of how it is implemented as WebGL does not support read and write to the same texture, even if it is an array. Due to this are we actually rendering back and forth between two texture arrays, but the logic is mostly the same. (Just a bit more tedious)
 
-\subsubsection{Marching Cubes mesh generation}
+\subsubsection*{2. Marching Cubes mesh generation}
 
 % NOTE: yell at me if you want me to go more into the details of how marching cubes work, but i feel like it isn't tooooo relevant as this is not the main part of our project...
 In order to draw the mesh of the vector field did we create a Marching Cubes implementation that we use to create a mesh based on the strength of the vectors in the vector field. This mesh does only make sense in the cases where the vector field has some structure, but can in these cases really help to visualize the 3d model. The implementation itself is not all that special and is very inspired by \reference{MarchingCubes}. We simply pass our vector field data and calculate the length of the vectors in order to create a scalar field and use it to construct a mesh. 
 
-\subsubsection{GUI}
+\subsubsection*{3. GUI}
 
 % TODO 
 
