@@ -1,9 +1,21 @@
 \documentclass{article}
 \usepackage[ampersand]{easylist}
 \usepackage[margin=3.5cm]{geometry}
+\usepackage{amsmath}
 \usepackage{graphicx}
+\usepackage{color}
+\usepackage{listings}
 \usepackage{parskip}
-\PassOptionsToPackage{hyphens}{url}\usepackage[pdftex]{hyperref}
+\usepackage{xcolor}
+
+% We will all remember this as the point where the document prelude went to shit
+\definecolor{darkgray}{gray}{0.3}
+
+\PassOptionsToPackage{hyphens}{url}\usepackage[pdftex,
+    colorlinks=true,
+    linkcolor=darkgray,
+    urlcolor=black,
+    ]{hyperref}
 
 % Set font to something a bit neater.
 \usepackage{times}
@@ -20,13 +32,29 @@ Brainstorm\\
 \emergencystretch 3em%
 \hfuzz .5pt
 
+% blatantly stolen from the INF226 thing
+\definecolor{codebd}{RGB}{226,228,230}
+\definecolor{codebg}{RGB}{246,248,250}
+\definecolor{codefg}{RGB}{36,41,46}
+\newcommand{\code}[1]{\fcolorbox{codebd}{codebg}{\lstinline[basicstyle=\ttfamily\color{codefg}]{#1}}}
+
+\newcommand{\reference}[1]{[\hyperref[ref:#1]{\textbf{#1}}]}
+\newcommand{\secref}[2]{\hyperref[sec:#1]{\textbf{#2}}}
+
 \begin{document}
 \maketitle
 \pagenumbering{arabic}
 
 \section*{Introduction}
 
-Brainstorm is an attempt to visualize brain diffusion tensor imaging (DTI) data using particle fields. While other contexts such as blood streams have been used with particle fields before, brain DTI data does not appear to have been attempted.
+Brainstorm is an application attempting to visualize brain diffusion tensor imaging (DTI) data using particle fields. While particle visualization has been used in other contexts such as blood streams, visualization of brain DTI data using particles does not appear to have been attempted, and streamlines are the prevalent visualization method for such datasets.
+
+The application is made to be data-agnostic, meaning that it can read any (compatible format) dataset and visualize it using particles, and is not limited to visualizing brain data.
+
+% NOTE: I felt like the smaller headline was more befitting of an as-such smaller section, but idk
+\subsubsection*{DTI data}
+
+Diffusion tensor imaging (DTI) is a medical imaging technique used to measure the interconnectivity of different parts of the brain. The actual measurements are of the direction of possible movement of water molecules in the brain, which in the brain's neural pathways are aligned with the direction of the path. Based on at least six measurements at a given point, we can obtain a tensor representing the vector field's directionality at that point by performing eigenanalysis on the measurement matrix. This enables us to construct a vector field using the measurement data.
 
 \subsection*{Technology}
 
@@ -40,7 +68,77 @@ Brainstorm is written using Rust. Rust was chosen due to our need for a low-leve
 
 \subsection*{Data format}
 
-% TODO
+% TODO: segway from the previous section by bringing up data agnosticism or whatever
+
+This project utilizes the dataset of Gordon Kindlmann's brain \reference{Dif}. The dataset is in the NRRD data format, consisting of a header which provides information about the way the data is structured, and a body which provides the actual data. NRRD is a flexible data format, but our program currently only supports a subset of it which conforms closely to the format described in \reference{Dif}.
+
+The choice of this data format was two-fold: First, this data format is relatively simple to work with from a programming perspective, due to the possibility of separating the header from the data body, the fields which are easy both for humans and computers to parse, and also because the data is arranged in a very simple structure - just a 3D grid of voxels. Secondly, one of the most easily accessible, open, well-documented brain DTI datasets was in this format. As a bonus, the same page offered a generated helix sample dataset in the same format, which allowed us to test that the method we used was general and would work with other datasets than just the brain.
+
+To be able to translate this data into a format directly understandable by our program, we made a preprocessor which accepts compatible NRRD data and parameters, and spits out the data as a serialized byte array which can be deserialized and used directly by our program. This enables us to store preprocessed data in a file for rapid loading, while also allowing the program to load NRRD data on the fly. Furthermore, it enables an easy way to extend the data in the preprocessing stage through further analysis or, in principle, even manual inspection by experts before loading it into the program, which may be fitted with the capability of interpreting the extensions of this data. An example of this is described in the \secref{prepro}{Pre-processing data analysis} section.
+
+The data body consists of an array of 32 bit floating point values in raw data (big-endian in Kindlmann's brain), which are uniformly spaced measurements arrayed in memory in a 2D-slice-by-slice manner. The data adopts the convention that the Z axis orders the slices in bottom-up fashion, meaning that higher Z memory indices indicate a higher spatial position of the slice. The coordinate (X, Y, Z) in the data thus refers to the measurement in the Yth row and Xth column in the Zth slice of the data from the bottom. The spatial configuration of our particle engine assumed that the X and Y coordinates (in the initial rotation) followed the conventional coordinate space used by computers screens, while Z indicated depth into the screen. This discrepancy was solved by rearranging the structure of the data in the preprocessing stage in order to allow the program to read it the way it expected to.
+
+Each voxel in the dataset consists of a 7-dimensional vector of this format: (Confidence, Dxx, Dxy, Dxz, Dyy, Dyz, Dzz), where:
+\begin{easylist}[itemize]
+& Confidence is a value representing our confidence that the measurement is signal vs. noise. Usually this value would be binary (zero or one), but it's possible to assign it with continuous values. For instance, a vector with confidence 0.5 would have a 50\% probability of being noise. However, the way we interpret the data, any confidence level lower than 1 is ignored, so it's essentially a mask of the brain.
+& The other values form a matrix in this manner:
+\end{easylist}
+
+% Must be outside easylist for easylist not to go crazy
+% hspace for indent
+\hspace{1cm}
+$\begin{bmatrix}
+    Dxx & Dxy & Dxz \\
+    Dxy & Dyy & Dyz \\
+    Dxz & Dyz & Dzz \\
+\end{bmatrix}$
+
+Performing eigenanalysis on this matrix gives us the eigenvectors and the corresponding eigenvalues. We used the Rust crate \code{nalgebra} \reference{nal} to do this. Finally, we select the most significant eigenvector (using the eigenvalues), calculate the FA value (fractional anisotropy, a scalar indicating how `strongly directional' the data is at that particular point) using the eigenvalues, and push the $(x, y, z, fa)$ vector into our own 3D array in the order our program expects, where $(x, y, z)$ are the $x$, $y$ and $z$ components of the principal eigenvector and $fa$ is the FA value.
+
+\subsubsection*{Pre-processing data analysis}
+\label{sec:prepro}
+
+As an enhancement of the data, we attempted to analyze it in order to determine interesting areas from which to perform seeding of particles. We decided that an interesting seeding point would be a point from which particles will travel far, in order to generate long paths. Furthermore, we wanted these points to be somewhat spread out in order to avoid a situation where only starting points in a single area were selected due to that area producing particularly long paths. Thus, we determined that a good strategy would be to attempt to maximize streamline length and spread of starting points.
+
+We ended up settling on an algorithm which uniformly samples points in the dataset and attempts to simulate the particle's path starting from that point using a fixed number of iterations ($n = 1000$ in our implementation). Starting points were calculated greedily based on the Euclidian distance of the end point to the starting point, and any starting point resulting in a path that collided with previously selected paths was discarded. This was done in order to encourage spread among the points we selected, so that we wouldn't select several close points which merged into one stream. We also attempted to give spread some additional weight by adding in a term considering the sum of the distance of the starting point to all previously selected points.
+
+The final function we attempted to maximize was $\textrm{dist}(p_e^i, p_s^i) + \textrm{dist}(p_e^i, p_s^i)\cdot(\sum_{j=1}^{i-1}{\textrm{dist}(p_s^i, p_s^j)})^{\sqrt{i}}$, where $p_s^i$ and $p_e^i$ indicates the start and end point of the $i$th selected seeding point, respectively. This function gives the properties:
+\begin{easylist}[itemize]
+& The initial point is selected only in terms of the distance the particle travels from the starting position, since there are no previous selected points (the second term is zero)
+& The sum of the distance between points becomes increasingly important for later seeding points, which helps increase the spread of the points
+\end{easylist}
+
+These values were obtained experimentally, and may not be appropriate for all datasets.
+
+Finally, in order to reduce the time it would take to process datasets, we parameterized some options allowing us to sacrifice resolution for speed:
+\begin{easylist}[itemize]
+& The number of seeding points to calculate
+& Step size of uniform sampling (assumption: spatially close values are likely to be similar, so we may be able to skip every other or every third coordinate across each axis and still obtain a reasonably close approximation for a speedup by a factor of $\textrm{stepsize}^3$)
+& Threshold of product of FA values surrounding the point (assumption: interesting seeding locations will be strongly directional, so if the FA value of a point and its neighbors is low, we can ignore it, allowing us to reduce the number of streamlines we have to calculate)
+\end{easylist}
+
+Furthermore, the following optimizations were added, possibly sacrificing complete accuracy for speed
+\begin{easylist}[itemize]
+& We used a nearest neighbor interpolation scheme to avoid having to do trilinear interpolation for every step\footnote{A recently discovered bug reveals that in fact, truncation was used instead of rounding (as nearest neighbor would do), but the result is presumed to be close enough for datasets of reasonably high resolutio}
+& If the particle's path reached a point where the FA value was zero, it would immediately disqualify the starting point path and move on, assuming that this particle would be destroyed when reaching this point while the program runs
+\end{easylist}
+
+\subsubsection*{Output: Custom data format}
+
+The data structure produced by the parser library is as follows:
+
+\begin{verbatim}
+#[derive(Serialize, Deserialize)]
+struct VectorField {
+    width: usize,
+    depth: usize,
+    height: usize,
+    field: Vec<Vec<Vec<(f32,f32,f32,f32)>>>,
+    seeding_pts: Vec<(f32,f32,f32)>
+}
+\end{verbatim}
+
+Using the Rust crate \code{serde} \reference{ser}, we can serialize this structure as a byte array (using the bincode format \reference{bin}), and deserialize it for use in the application. The actual internal representation of the vector field in the application itself is flattened due to perceived performance benefits.
 
 \subsection*{OpenGL and WebGL}
 
@@ -49,5 +147,24 @@ Brainstorm is written using Rust. Rust was chosen due to our need for a low-leve
 \section*{Conclusion}
 
 % TODO
+% NOTE: Something about the possibility of probabilistic paths using the second/third principal components of the tensor's eigenvectors?
+
+\section*{References}
+
+\textbf{[Dif]}
+\label{ref:Dif}
+Diffusion tensor MRI datasets. \url{http://www.sci.utah.edu/~gk/DTI-data/}. (Accessed on 2018-12-14). Brain dataset courtesy of Gordon Kindlmann at the Scientific Computing and Imaging Institute, University of Utah, and Andrew Alexander, W. M. Keck Laboratory for Functional Brain Imaging and Behavior, University of Wisconsin-Madison.
+
+\textbf{[nal]}
+\label{ref:nal}
+Crate nal. \url{https://docs.rs/nalgebra/0.16.12/nalgebra/}. (Accessed on 2018-12-14).
+
+\textbf{[ser]}
+\label{ref:ser}
+Crate serde. \url{https://docs.rs/serde/0.9.0-rc3/serde/}. (Accessed on 2018-12-14).
+
+\textbf{[bin]}
+\label{ref:bin}
+Crate bincode. \url{https://docs.rs/bincode/1.0.1/bincode/}. (Accessed on 2018-12-14).
 
 \end{document}
