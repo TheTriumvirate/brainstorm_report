@@ -58,13 +58,13 @@ Diffusion tensor imaging (DTI) is a medical imaging technique used to measure th
 
 \subsection*{Technology}
 
-Brainstorm is written using Rust. Rust was chosen due to our need for a low-level to easily work with OpenGL directly, while also wanting to try something new, and part of our team being uncomfortable with C/C++'s manual memory management and pointer arithmetic. This has the benefit of easily compiling to WebAssembly, which opened up the ability to also deploy Brainstorm to a website, without compromising on performance for the desktop version. Unfortunately, this was not as simple as imagined, but despite the extra work we did get it working as we wanted to.
+Brainstorm is written using Rust. Rust was chosen due to our need for a low-level language to easily work with OpenGL directly while also wanting to try something new, as well as part of our team being uncomfortable with C/C++'s manual memory management and pointer arithmetic. This has the benefit of easily compiling to WebAssembly, which opened up the ability to also deploy Brainstorm to a website, without compromising on performance for the desktop version. Unfortunately, this was not as simple as imagined, but despite the extra work required we got it working as we wanted to.
 
 \section*{Implementation}
 
-\subsection*{Making Rust generic over platforms}
+\subsection*{Making a cross-platform application}
 
-% TODO
+As our group worked on different platforms, we had to settle on a cross-platform language and technology stack. Once we saw the opportunity to also make our application work on the web, we decided to also include web browsers as one of our target platforms. This turned out to be more work than we anticipated.
 
 \subsection*{Data format}
 
@@ -142,29 +142,33 @@ Using the Rust crate \code{serde} \reference{ser}, we can serialize this structu
 
 \subsection*{OpenGL and WebGL}
 
-% NOTE: @Stian, you might want to move some this to the making rust generic part. I just wrote it here for now...
-In order to visualize the vectorfield did we have to create our own rendering engine that we built on top of OpenGL and WebGL. This was done because we wanted our program to be platform agnostic while also being easily approachable by supporting web. This turned out to be tricker than we thought due to the fact that WebGL's feature set being essentially a subset of OpenGL with some subtle differences. These subtle differences often took some time to figure out and handle properly, but once we got the system up and running was writing the actual code pretty simple since you could just write the code once and it could build, often, to all systems. 
+Making a renderer work on both the desktop and the web turned out to be trickier than we thought. WebGL's feature set is essentially a subset of OpenGL, with some subtle differences on top. These differences often took significant time and effort to track down and handle properly, but once we got the framework figured out writing the actual algorithms was pretty simple.
 
-Note: From this point forward will i just refer to OpenGL when speaking about our OpenGL / WebGL binding framework.
+Note: From this point forward will I just refer to OpenGL when speaking about our OpenGL / WebGL binding framework.
 
-\subsubsection*{1. CPU and GPU based particle rendering}
+\subsubsection*{CPU and GPU based particle rendering}
 
-% NOTE: this is a pretty simplistic summary and doesn't account for lifetimes, high-pass filtering, low-pass filtering, etc
-The CPU based particle rendering was our first try at drawing particles and is based on having a list of particles in memory that we update and then draw. This list is represented as vertex points which we then update by performing a trilinear interpolation on the vector field based on the current particle position and then moving the particle in the direction of the vector. After all particles are updated do we send them to OpenGL in order to be drawn as points. We then expand the point to a quad by changing the point size to reflect the actual particle size. We should at this point be able to see the particles, but they would appear rectangular since the point is expanded to a quad. In order to make the particle round do we do a simple check whether the fragment position actually is inside the desired circle using the circle formula. If it is, then we keep the fragment, if it isn't, do we simply discard it.
+% NOTE: this is a pretty simplistic summary and doesn't account for lifetimes, high-pass filtering, low-pass filtering, etc.
+The CPU based particle renderer was our first attempt at drawing particles. It simply keeps a list of particles in memory, that is updated and drawn once per frame. For each particle, it's next position is found by performing a trilinear interpolation on the vector field based on the current particle position. After all particles are updated and moved, they're sent to OpenGL to be drawn as points. Then each point is expanded to a quad by changing the point size to reflect the actual particle size. Then the particle is rounded to a circle instead of a square with a simple fragment shader checking the radius of the fragment from the center of the quad.
 
-While the CPU based approach works well were we not able to support as many particles as we wanted. (Especially if we wanted to support streamlets, which is something we were discussing at the time.) We were thinking of maybe making the update process multithreaded, but since we wouldn't be able to support web did we decide against this. This is due to webassembly not supporting multithreading at the point of this project. We therefore decided to try a GPU based approach.
+While the CPU based approach works well, it could not support as many particles as we wanted. The approach would also make streamlets (fading trails behind the particles) difficult to implement, and would further reduce the number of particles on-screen. One approach to increase it would be to add multi-threading, but this would not work on the web due to WebAssembly limitations. We therefore decided to try a GPU based approach.
 
 % NOTE: Again, this is a simplified summary and does not account for any implementation details of the actual shaders used...
-The GPU based particle rendering ended up being a lot trickier to implement than we first anticipated, but we were glad we did it in the end. The way we implemented this is by having an array of textures, where the length of the array is the same as the length of the streamlets. Each texture would then represent the state of the particle system at a given frame and each pixel would represent the position of a single particle. In order to update the positions would we take one texture as input, a 3d texture representing the vector field as input, and make the output be the new state of the particles. We then had a vertex array where each vertex were mapped to a single pixel which were used in the vertex shader to get the position of the particle, we would then do a trilinear interpolation based on that position in the 3d texture and ouput the the particle position as a color on the output texture. In order to actually display the streamlets in world space do we have to do another render pass. In order to do this do we create another array of vertices that represent the vertices that should be drawn on the screen and also an array of indices based on the streamlets. We then pass these to OpenGL along with the texture array that represents the particle state. In order to get the positions of the vertices do we take the color of the texture and use it as the position in world space. In order to display the streamlets do we use the previous world states instead, based on the gl\_VertexID, and simply place each segment of the streamlet on the earlier calculated position.
+The GPU based particle rendering ended up being a lot harder to implement than we first anticipated, but we were glad we did it in the end. The way it is  implemented is by having an array of textures, where the length of the array is the same as the length of the streamlets. Each texture would then represent the state of the particle system at a given frame, and each pixel would represent the position of a single particle. In order to update the positions, we do the following:
 
-% NOTE: HOOOO BOOOY, i hope aaaaaaaannny of this makes aaaaaaaannny sense at all >.<
+\begin{easylist}
+    & Pick a texture containing the current particle state and a 3D texture representing the vector field as input.
+    & For each particle, perform a trilinear interpolation in the 3D vector field texture to find the vector at the point it currently is.
+    & Add the vector to the current position and save the new particle position as the color on the output texture.
+\end{easylist}
 
-Note: This is a simplified version of how it is implemented as WebGL does not support read and write to the same texture, even if it is an array. Due to this are we actually rendering back and forth between two texture arrays, but the logic is mostly the same. (Just a bit more tedious)
+In order to display the streamlets in world space we have to do another render pass. We create another array of vertices that represent the vertices that should actually be drawn on the screen, as well as an array of indices based on the streamlets. We then pass these to OpenGL along with the texture array that represents the particle state. We take the positions of the vertices from the colors in the output texture we save earlier and use those as the world space positions. Then we repeat that on the streamlets using the previous world states, based on the gl\_VertexID, and simply place each segment of the streamlet on the earlier calculated position.
 
-\subsubsection*{2. Marching Cubes mesh generation}
+Note: This is a simplified version of how it is implemented as WebGL does not support read and write to the same texture, even if it is an array. Due to this are we actually rendering back and forth between two texture arrays, but the logic is mostly the same (just a bit more tedious).
 
-% NOTE: yell at me if you want me to go more into the details of how marching cubes work, but i feel like it isn't tooooo relevant as this is not the main part of our project...
-In order to draw the mesh of the vector field did we create a Marching Cubes implementation that we use to create a mesh based on the strength of the vectors in the vector field. This mesh does only make sense in the cases where the vector field has some structure, but can in these cases really help to visualize the 3d model. The implementation itself is not all that special and is very inspired by \reference{MarchingCubes}. We simply pass our vector field data and calculate the length of the vectors in order to create a scalar field and use it to construct a mesh. 
+\subsubsection*{Marching Cubes mesh generation}
+
+In order to draw the mesh of the vector field, we implemented the Marching Cubes algorithm. It creates a mesh based on the strength of the vectors in the vector field. This mesh only makes sense when the vector field has edges (like a brain or spiral, rather than noise fields), and we found it very helpful to easily see where in the vector field we were looking. The implementation is not all that special and is very inspired by the linked article by Paul Bourke \reference{MarchingCubes}. We simply pass our vector field data and calculate the length of the vectors in order to create a scalar field and use it to construct a mesh.
 
 \subsubsection*{3. GUI}
 
@@ -183,7 +187,7 @@ Diffusion tensor MRI datasets. \url{http://www.sci.utah.edu/~gk/DTI-data/}. (Acc
 
 \textbf{[nal]}
 \label{ref:nal}
-Crate nal. \url{https://docs.rs/nalgebra/0.16.12/nalgebra/}. (Accessed on 2018-12-14).
+Crate NAlgebra. \url{https://docs.rs/nalgebra/0.16.12/nalgebra/}. (Accessed on 2018-12-14).
 
 \textbf{[ser]}
 \label{ref:ser}
