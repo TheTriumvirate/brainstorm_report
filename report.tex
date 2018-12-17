@@ -70,17 +70,17 @@ As our group worked on different platforms, we had to settle on a cross-platform
 
 Rust compiles to all targets that LLVM can compile to, meaning we have broad platform support on a language level. This includes WebAssembly, although WebAssembly currently has many limitations. These include no threading support, no DOM access, and only being able to pass primitive types and pointers to JavaScript. There's also no API for basic functionality like accessing the date and time.
 
-To get around this, we used the \reference{stdweb} library. \texttt{stdweb} sets up the webpage and handles all calls between JavaScript and Rust automatically so we don't have to manually create external interfaces and callbacks. We also used the \reference{cargo-web} tool to automate building the project as a website as well as running the project on a local web-server for testing.
+To get around this, we used the \reference{stdweb} library. \code{stdweb} sets up the webpage and handles all calls between JavaScript and Rust automatically so we don't have to manually create external interfaces and callbacks. We also used the \reference{cargo-web} tool to automate building the project as a website as well as running the project on a local web-server for testing.
 
 The next obstacle for cross-platform support is rendering and GUI\@. Rust GUI libraries are few and immature, and our needs were very specific as we need direct access to OpenGL to use our shaders. But as far as we could tell, there are no GUI libraries at all that runs on both OpenGL and WebGL\@. That left us to implement our own basic GUI toolkit from scratch.
 
-In order to render the same thing on all targets, we needed was to create a layer of abstraction between our program and OpenGL/WebGL, so that the two API's would not require different code anywhere else in our codebase. Fortunately, we were not the first to attempt this. \texttt{Kiss3D} is a simple 3D graphics engine written in Rust, that we heavily borrowed from when creating our abstraction layer. This made OpenGL and WebGL calls identical and chosen at compile-time, meaning we didn't have to worry about much (although there were still implementation differences, which we will come back to).
+In order to render the same thing on all targets, we needed was to create a layer of abstraction between our program and OpenGL/WebGL, so that the two API's would not require different code anywhere else in our codebase. Fortunately, we were not the first to attempt this. \code{Kiss3D} is a simple 3D graphics engine written in Rust, that we heavily borrowed from when creating our abstraction layer. This made OpenGL and WebGL calls identical and chosen at compile-time, meaning we didn't have to worry about much (although there were still implementation differences, which we will come back to).
 
 \subsubsection*{Writing a GUI toolkit from scratch}
 
 With the GL calls in place, we can start creating data structures that handles drawing primitive triangles to the screen, as well as texturing them. Buttons and sliders can easily be represented, although text labels was a difficult problem. In order to render text, a font must be loaded and parsed, the correct glyphs must be chosen, laid out and rasterized with sub-pixel positioning, and cached on the GPU\@. Fortunately, the \reference{RustType} library handled most this for us.
 
-Next we made a UI system to do centralized initialization, rendering and event handling for all UI elements. In order to make the UI elements interact with the rest of the application, we crated a \texttt{State} struct that holds all the settings we anticipate to change and pass around a reference to it to the various subsystems, such as the GUI and particle engines. Each UI element can then be loaded with a function that takes a mutable reference to the \texttt{State} struct and changes it as pre-programmed.
+Next we made a UI system to do centralized initialization, rendering and event handling for all UI elements. In order to make the UI elements interact with the rest of the application, we crated a \code{State} struct that holds all the settings we anticipate to change and pass around a reference to it to the various subsystems, such as the GUI and particle engines. Each UI element can then be loaded with a function that takes a mutable reference to the \code{State} struct and changes it as pre-programmed.
 
 \subsubsection*{Handling files}
 
@@ -224,10 +224,10 @@ Crate Kiss3D. \url{http://kiss3d.org/}. (Accessed on 2018--12--17).
 \textbf{[RustType]}\label{ref:RustType}
 Crate RustType. \url{https://github.com/redox-os/rusttype}. (Accessed on 2018--12--17).
 
-\textbf{[nfg]}\label{ref:nfd}
+\textbf{[nfd]}\label{ref:nfd}
 Crate nfd. \url{https://github.com/saurvs/nfd-rs}. (Accessed on 2018--12--17).
 
-\textbf{[Native File Dialog]}\label{ref:Native File Dialog}\\
+\textbf{[Native File Dialog]}\label{ref:Native File Dialog}
 Native File Dialog library. \url{https://github.com/mlabbe/nativefiledialog} (Accessed on 2018--12--17).
 
 \textbf{[nal]}\label{ref:nal}
