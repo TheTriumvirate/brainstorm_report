@@ -70,23 +70,23 @@ As our group worked on different platforms, we had to settle on a cross-platform
 
 Rust compiles to all targets that LLVM can compile to, meaning we have broad platform support on a language level. This includes WebAssembly, although WebAssembly currently has many limitations. These include no threading support, no DOM access, and only being able to pass primitive types and pointers to JavaScript. There's also no API for basic functionality like accessing the date and time.
 
-To get around this, we used the \reference{stdweb} library. \code{stdweb} sets up the webpage and handles all calls between JavaScript and Rust automatically so we don't have to manually create external interfaces and callbacks. We also used the \reference{cargo-web} tool to automate building the project as a website as well as running the project on a local web-server for testing.
+To get around this, we used the \code{stdweb} \reference{std} library. \code{stdweb} sets up the webpage and handles all calls between JavaScript and Rust automatically so we don't have to manually create external interfaces and callbacks. We also used the \code{cargo-web} \reference{car} tool to automate building the project as a website as well as running the project on a local web-server for testing.
 
 The next obstacle for cross-platform support is rendering and GUI\@. Rust GUI libraries are few and immature, and our needs were very specific as we need direct access to OpenGL to use our shaders. But as far as we could tell, there are no GUI libraries at all that runs on both OpenGL and WebGL\@. That left us to implement our own basic GUI toolkit from scratch.
 
-In order to render the same thing on all targets, we needed was to create a layer of abstraction between our program and OpenGL/WebGL, so that the two API's would not require different code anywhere else in our codebase. Fortunately, we were not the first to attempt this. \code{Kiss3D} is a simple 3D graphics engine written in Rust, that we heavily borrowed from when creating our abstraction layer. This made OpenGL and WebGL calls identical and chosen at compile-time, meaning we didn't have to worry about much (although there were still implementation differences, which we will come back to).
+In order to render the same thing on all targets, we needed was to create a layer of abstraction between our program and OpenGL/WebGL, so that the two API's would not require different code anywhere else in our codebase. Fortunately, we were not the first to attempt this. \code{Kiss3D} \reference{Kis} is a simple 3D graphics engine written in Rust, that we heavily borrowed from when creating our abstraction layer. This made OpenGL and WebGL calls identical and chosen at compile-time, meaning we didn't have to worry about much (although there were still implementation differences, which we will come back to).
 
 \subsubsection*{Writing a GUI toolkit from scratch}
 
-With the GL calls in place, we can start creating data structures that handles drawing primitive triangles to the screen, as well as texturing them. Buttons and sliders can easily be represented, although text labels was a difficult problem. In order to render text, a font must be loaded and parsed, the correct glyphs must be chosen, laid out and rasterized with sub-pixel positioning, and cached on the GPU\@. Fortunately, the \reference{RustType} library handled most this for us.
+With the GL calls in place, we can start creating data structures that handles drawing primitive triangles to the screen, as well as texturing them. Buttons and sliders can easily be represented, although text labels was a difficult problem. In order to render text, a font must be loaded and parsed, the correct glyphs must be chosen, laid out and rasterized with sub-pixel positioning, and cached on the GPU\@. Fortunately, the \code{RustType} \reference{Rus} library handled most this for us.
 
-Next we made a UI system to do centralized initialization, rendering and event handling for all UI elements. In order to make the UI elements interact with the rest of the application, we crated a \code{State} struct that holds all the settings we anticipate to change and pass around a reference to it to the various subsystems, such as the GUI and particle engines. Each UI element can then be loaded with a function that takes a mutable reference to the \code{State} struct and changes it as pre-programmed.
+Next we made a UI system to do centralized initialization, rendering and event handling for all UI elements. In order to make the UI elements interact with the rest of the application, we created a \code{State} struct that holds all the settings we anticipate to change and pass around a reference to it to the various subsystems, such as the GUI and particle engines. Each UI element can then be loaded with a function that takes a mutable reference to the \code{State} struct and changes it as pre-programmed.
 
 \subsubsection*{Handling files}
 
-Letting the user pick files is a difficult problem on desktop platform --- and we have to support web browsers to boot! Fortunately, the \reference{nfd} crate provided us with bindings to the C library \reference{Native File Dialog}, which abstracts away the difference between the native file picker API's on the three main desktop platforms --- Windows, Linux and Mac OS X.
+Letting the user pick files is a difficult problem on desktop platform --- and we have to support web browsers to boot! Fortunately, the \code{nfd} \reference{nfd} crate provided us with bindings to the C library \code{Native File Dialog} \reference{Nat}, which abstracts away the difference between the native file picker API's on the three main desktop platforms --- Windows, Linux and Mac OS X.
 
-The web required a completely different approach however. Using \reference{stdweb} for bindings, we created a small API in JavaScript that provided several functions:
+The web required a completely different approach however. Using \code{stdweb} for bindings, we created a small API in JavaScript that provided several functions:
 
 \begin{easylist}
     & Open the file picker and continue.
@@ -123,7 +123,7 @@ Each voxel in the dataset consists of a 7-dimensional vector of this format: (Co
     Dxz & Dyz & Dzz \\
 \end{bmatrix}\)
 
-Performing eigenanalysis on this matrix gives us the eigenvectors and the corresponding eigenvalues. We used the Rust crate \code{nalgebra} \reference{nal} to do this. Finally, we select the most significant eigenvector (using the eigenvalues), calculate the FA value (fractional anisotropy, a scalar indicating how `strongly directional' the data is at that particular point) using the eigenvalues, and push the \((x, y, z, fa)\) vector into our own 3D array in the order our program expects, where \((x, y, z)\) are the \(x\), \(y\) and \(z\) components of the principal eigenvector and \(fa\) is the FA value.
+Performing eigenanalysis on this matrix gives us the eigenvectors and the corresponding eigenvalues. We used the Rust crate \code{nalgebra} \reference{Lin} to do this. Finally, we select the most significant eigenvector (using the eigenvalues), calculate the FA value (fractional anisotropy, a scalar indicating how `strongly directional' the data is at that particular point) using the eigenvalues, and push the \((x, y, z, fa)\) vector into our own 3D array in the order our program expects, where \((x, y, z)\) are the \(x\), \(y\) and \(z\) components of the principal eigenvector and \(fa\) is the FA value.
 
 \subsubsection*{Pre-processing data analysis}\label{sec:prepro}
 
@@ -170,7 +170,7 @@ struct VectorField {
 }
 \end{verbatim}
 
-Using the Rust crate \code{serde} \reference{ser}, we can serialize this structure as a byte array (using the bincode format \reference{bin}), and deserialize it for use in the application. The actual internal representation of the vector field in the application itself is flattened due to perceived performance benefits.
+Using the Rust crate \code{serde} \reference{Ser}, we can serialize this structure as a byte array (using the bincode format \reference{Bin}), and deserialize it for use in the application. The actual internal representation of the vector field in the application itself is flattened due to perceived performance benefits.
 
 \subsection*{OpenGL and WebGL}
 
@@ -200,7 +200,7 @@ Note: This is a simplified version of how it is implemented as WebGL does not su
 
 \subsubsection*{Marching Cubes mesh generation}
 
-In order to draw the mesh of the vector field, we implemented the Marching Cubes algorithm. It creates a mesh based on the strength of the vectors in the vector field. This mesh only makes sense when the vector field has edges (like a brain or spiral, rather than noise fields), and we found it very helpful to easily see where in the vector field we were looking. The implementation is not all that special and is very inspired by the linked article by Paul Bourke \reference{MarchingCubes}. We simply pass our vector field data and calculate the length of the vectors in order to create a scalar field and use it to construct a mesh.
+In order to draw the mesh of the vector field, we implemented the Marching Cubes algorithm. It creates a mesh based on the strength of the vectors in the vector field. This mesh only makes sense when the vector field has edges (like a brain or spiral, rather than noise fields), and we found it very helpful to easily see where in the vector field we were looking. The implementation is not all that special and is very inspired by the linked article by Paul Bourke \reference{Mar}. We simply pass our vector field data and calculate the length of the vectors in order to create a scalar field and use it to construct a mesh.
 
 \section*{Conclusion}
 
@@ -212,34 +212,34 @@ In order to draw the mesh of the vector field, we implemented the Marching Cubes
 \textbf{[Dif]}\label{ref:Dif}
 Diffusion tensor MRI datasets. \url{http://www.sci.utah.edu/~gk/DTI-data/}. (Accessed on 2018--12--14). Brain dataset courtesy of Gordon Kindlmann at the Scientific Computing and Imaging Institute, University of Utah, and Andrew Alexander, W. M. Keck Laboratory for Functional Brain Imaging and Behavior, University of Wisconsin-Madison.
 
-\textbf{[stdweb]}\label{ref:stdweb}
-Crate stdweb. \url{https://github.com/koute/stdweb}. (Accessed on 2018--12--17).
+\textbf{[std]}\label{ref:std}
+A standard library for the client-side Web. \url{https://github.com/koute/stdweb}. (Accessed on 2018--12--17).
 
-\textbf{[cargo-web]}\label{ref:cargo-web}
-Crate cargo-web. \url{https://github.com/koute/cargo-web}. (Accessed on 2018--12--17).
+\textbf{[car]}\label{ref:car}
+A cargo subcommand for the client-side Web. \url{https://github.com/koute/cargo-web}. (Accessed on 2018--12--17).
 
-\textbf{[Kiss3D]}\label{ref:Kiss3D}
-Crate Kiss3D. \url{http://kiss3d.org/}. (Accessed on 2018--12--17).
+\textbf{[Kis]}\label{ref:Kis}
+Kiss3D. \url{http://kiss3d.org/}. (Accessed on 2018--12--17).
 
-\textbf{[RustType]}\label{ref:RustType}
-Crate RustType. \url{https://github.com/redox-os/rusttype}. (Accessed on 2018--12--17).
+\textbf{[Rus]}\label{ref:Rus}
+RustType. \url{https://github.com/redox-os/rusttype}. (Accessed on 2018--12--17).
 
 \textbf{[nfd]}\label{ref:nfd}
-Crate nfd. \url{https://github.com/saurvs/nfd-rs}. (Accessed on 2018--12--17).
+nfd-rs. \url{https://github.com/saurvs/nfd-rs}. (Accessed on 2018--12--17).
 
-\textbf{[Native File Dialog]}\label{ref:Native File Dialog}
-Native File Dialog library. \url{https://github.com/mlabbe/nativefiledialog} (Accessed on 2018--12--17).
+\textbf{[Nat]}\label{ref:Nat}
+Native File Dialog. \url{https://github.com/mlabbe/nativefiledialog} (Accessed on 2018--12--17).
 
-\textbf{[nal]}\label{ref:nal}
-Crate NAlgebra. \url{https://docs.rs/nalgebra/0.16.12/nalgebra/}. (Accessed on 2018--12--14).
+\textbf{[Lin]}\label{ref:Lin}
+Linear algebra library. \url{https://www.nalgebra.org/}. (Accessed on 2018--12--17).
 
-\textbf{[ser]}\label{ref:ser}
-Crate serde. \url{https://docs.rs/serde/0.9.0-rc3/serde/}. (Accessed on 2018--12--14).
+\textbf{[Ser]}\label{ref:Ser}
+Serde. \url{https://serde.rs/}. (Accessed on 2018--12--17).
 
-\textbf{[bin]}\label{ref:bin}
-Crate bincode. \url{https://docs.rs/bincode/1.0.1/bincode/}. (Accessed on 2018--12--14).
+\textbf{[Bin]}\label{ref:Bin}
+Bincode. \url{https://github.com/TyOverby/bincode}. (Accessed on 2018--12--17).
 
-\textbf{[MarchingCubes]}\label{ref:MarchingCubes}
+\textbf{[Mar]}\label{ref:Mar}
 Polygonising a scalar field (Marching Cubes). \url{http://paulbourke.net/geometry/polygonise/}. (Accessed on 2018--12--16)
 
 \end{document}
