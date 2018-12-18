@@ -204,8 +204,19 @@ In order to draw the mesh of the vector field, we implemented the Marching Cubes
 
 \section*{Conclusion}
 
-% TODO
-% NOTE: Something about the possibility of probabilistic paths using the second/third principal components of the tensor's eigenvectors?
+Looking at Brainstorm as it stands right now, it is potentially a useful tool for researchers wanting to visualize DTI scans in a new way. It combines an overview of the overall structure of the field as well as let the user explore the field, guided by the map sliders and filters. It may also have other applications as a result of it's data agnosticism, although this is complicated by the limited set of data formats it currently supports. Support for more formats can fairly trivially be added however.
+
+We do not have any formal plans for future development of Brainstorm, but we have some ideas for tweaks and refactoring that we would like to perform before sharing the project on a bigger stage. Some ideas we have been toying with:
+
+\begin{easylist}
+    & Selecting between different interpolation schemes.
+    & Additional sliders for particle counts, transparency, etc.
+    & Data generation to play with different random vector fields.
+    & Improving the high- and low-pass filters to "obstruct" particles physically rather than destroying and respawning them.
+        & Likely a difficult task, but would likely significantly improve the visibility of nerve structures in the brain DTI scans.
+    & Visualizing probabilistic paths by deviating particle trajectory randomly based on the certainty of the data.
+        & Also a time-consuming task, but would leverage a strength of visualizing using particle fields rather than streamlines.
+\end{easylist}
 
 \section*{References}
 
