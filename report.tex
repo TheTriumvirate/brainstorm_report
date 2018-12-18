@@ -7,6 +7,7 @@
 \usepackage{listings}
 \usepackage{parskip}
 \usepackage{xcolor}
+\usepackage{wrapfig}
 
 % We will all remember this as the point where the document prelude went to shit
 \definecolor{darkgray}{gray}{0.3}
@@ -108,7 +109,16 @@ To be able to translate this data into a format directly understandable by our p
 
 The data body consists of an array of 32 bit floating point values in raw data (big-endian in Kindlmann's brain), which are uniformly spaced measurements arrayed in memory in a 2D-slice-by-slice manner. The data adopts the convention that the Z axis orders the slices in bottom-up fashion, meaning that higher Z memory indices indicate a higher spatial position of the slice. The coordinate (X, Y, Z) in the data thus refers to the measurement in the Yth row and Xth column in the Zth slice of the data from the bottom. The spatial configuration of our particle engine assumed that the X and Y coordinates (in the initial rotation) followed the conventional coordinate space used by computers screens, while Z indicated depth into the screen. This discrepancy was solved by rearranging the structure of the data in the preprocessing stage in order to allow the program to read it the way it expected to.
 
+\begin{wrapfigure}{r}{6cm}
+  \centering
+    \includegraphics[width=6cm]{STgeneric}
+    \raggedright
+    Fig. 1: Elliptical (anisotropic) tensor representation. CC-BY-SA 2.5 via \url{https://commons.wikimedia.org/wiki/File:STgeneric.png}
+    \vspace{-2.5cm}
+\end{wrapfigure}
+
 Each voxel in the dataset consists of a 7-dimensional vector of this format: (Confidence, Dxx, Dxy, Dxz, Dyy, Dyz, Dzz), where:
+
 \begin{easylist}[itemize]
 & Confidence is a value representing our confidence that the measurement is signal vs.\@ noise. Usually this value would be binary (zero or one), but it's possible to assign it with continuous values. For instance, a vector with confidence 0.5 would have a 50\% probability of being noise. However, the way we interpret the data, any confidence level lower than 1 is ignored, so it's essentially a mask of the brain.
 & The other values form a matrix in this manner:
@@ -124,6 +134,7 @@ Each voxel in the dataset consists of a 7-dimensional vector of this format: (Co
 \end{bmatrix}\)
 
 Performing eigenanalysis on this matrix gives us the eigenvectors and the corresponding eigenvalues. We used the Rust crate \code{nalgebra} \reference{Lin} to do this. Finally, we select the most significant eigenvector (using the eigenvalues), calculate the FA value (fractional anisotropy, a scalar indicating how `strongly directional' the data is at that particular point) using the eigenvalues, and push the \((x, y, z, fa)\) vector into our own 3D array in the order our program expects, where \((x, y, z)\) are the \(x\), \(y\) and \(z\) components of the principal eigenvector and \(fa\) is the FA value.
+
 
 \subsubsection*{Pre-processing data analysis}\label{sec:prepro}
 
