@@ -19,8 +19,8 @@
     ]{hyperref}
 
 % Set font to something a bit neater.
-%\usepackage{times}
-%\renewcommand{\familydefault}{\sfdefault}
+\usepackage{times}
+\renewcommand{\familydefault}{\sfdefault}
 
 \title{%
 Brainstorm\\
@@ -49,45 +49,43 @@ Brainstorm\\
 \includegraphics[width=\textwidth]{brainstorm.png}
 \section*{Introduction}
 
-Brainstorm is an application attempting to visualize brain diffusion tensor imaging (DTI) data using particle fields. While particle visualization has been used in other contexts such as blood streams, visualization of brain DTI data using particles does not appear to have been attempted, and streamlines are the prevalent visualization method for such datasets.
+Brainstorm is an application designed to visualize brain diffusion tensor imaging (DTI) data using particle fields. While particle visualization has been used in other contexts such as blood streams, streamlines are the prevalent visualization method for visualization of brain DTI data, and as far as we can tell nobody has yet attempted to visualize such datasets using particles.
 
-The application is made to be data-agnostic, meaning that it can read any (compatible format) dataset and visualize it using particles, and is not limited to visualizing brain data.
+The application is designed to be data-agnostic, meaning that it can read and visualize any dataset (in a supported file format) using particles, and is not limited to visualizing brain data.
 
-% NOTE: I felt like the smaller headline was more befitting of an as-such smaller section, but idk
 \subsubsection*{DTI data}
 
 Diffusion tensor imaging (DTI) is a medical imaging technique used to measure the interconnectivity of different parts of the brain. The actual measurements are of the direction of possible movement of water molecules in the brain, which in the brain's neural pathways are aligned with the direction of the path. Based on at least six measurements at a given point, we can obtain a tensor representing the vector field's directionality at that point by performing eigenanalysis on the measurement matrix. This enables us to construct a vector field using the measurement data.
 
 \subsection*{Technology}
 
-Brainstorm is written using Rust. Rust was chosen due to the need for a low-level language to easily work with OpenGL directly. Obvious candidates such as C/C++ were disregarded to avoid manual memory management and pointer arithmetic. Rust also easily compiles to WebAssembly, which made it possible to also deploy Brainstorm to a website. This might make it more accessible to potential users, without compromising on performance for the desktop version.
+Brainstorm is written using Rust. Rust was chosen due to the need for a low-level language to easily work with OpenGL directly. While C/C++ is the obvious first candidate for such a project, we wished to avoid the error-prone manual memory management and pointer arithmetic that would require. Rust also easily compiles to WebAssembly, making it possible to also deploy Brainstorm to a website. This makes it more accessible to potential users without compromising on performance for the desktop version.
 
 \section*{Implementation}
 
 \subsection*{Making a cross-platform application}
 
 \subsubsection*{Compiling to all platforms}
-% TODO: Remove the amount of "we" in this section
 
-Rust compiles to all targets that LLVM can compile to, meaning we have broad platform support on a language level. This includes WebAssembly, although WebAssembly currently has many limitations. These include no threading support, no DOM access, and only being able to pass primitive types and pointers to JavaScript. There's also no API for basic functionality like accessing the date and time.
+Rust compiles to all targets that LLVM can compile to, leading to broad platform support on a language level. This includes WebAssembly, although WebAssembly currently has many limitations. These include no threading support, no DOM access, and only being able to pass primitive types and pointers to JavaScript. There's also no API for basic functionality like accessing the date and time.
 
-To get around this, we used the \code{stdweb} \reference{std} library. \code{stdweb} sets up the webpage and handles all calls between JavaScript and Rust automatically so we don't have to manually create external interfaces and callbacks. We also used the \code{cargo-web} \reference{car} tool to automate building the project as a website as well as running the project on a local web-server for testing.
+To get around this, we used the \code{stdweb} \reference{std} library. \code{stdweb} sets up the webpage and handles all calls between JavaScript and Rust automatically so there's no need to manually create external interfaces and callbacks. We also used the \code{cargo-web} \reference{car} tool to automate building the project as a website as well as running the project on a local web-server for testing.
 
-The next obstacle for cross-platform support was rendering and GUI. Rust GUI libraries are few and immature, and our needs were very specific as we needed direct access to OpenGL shaders. Furthermore, we found no GUI libraries which run on both OpenGL and WebGL. That left us to implement our own basic GUI toolkit from scratch.
+The next obstacle for cross-platform support was rendering and GUI. Rust GUI libraries are few and immature, and our needs were very specific as Brainstorm requires direct access to OpenGL shaders. We also did not find any GUI libraries which could run on both OpenGL and WebGL. That left us to implement our own basic GUI toolkit from scratch.
 
-We created a layer of abstraction between our program and OpenGL/WebGL, so that the two APIs would not require different code anywhere else in our codebase. Fortunately, we were not the first to attempt this. \code{Kiss3D} \reference{Kis} is a simple 3D graphics engine written in Rust, which we heavily borrowed from when creating our abstraction layer. This made OpenGL and WebGL calls identical, and the correct version was determined at compile-time, making it easier to program against. % (although there were still implementation differences, which we will come back to).
+To avoid having to maintain separate versions of code for both OpenGL and WebGL, we created a layer of abstraction over the two APIs. Fortunately, we were not the first to do this. \code{Kiss3D} \reference{Kis} is a simple 3D graphics engine written in Rust that can render to both OpenGL and WebGL, which our OpenGL/WebGL abstraction layer heavily borrows and copies from. This made OpenGL and WebGL calls identical for the rest of the code base with the correct bindings being determined at compile-time, making our codebase much simpler.
 
 \subsubsection*{Writing a GUI toolkit from scratch}
 
-We created our own data structures which handle drawing and texturing primitive triangles to the screen, and used these as building blocks to represent buttons and sliders. Text labels were challenging; in order to render text, a font must be loaded and parsed, the correct glyphs must be chosen, laid out and rasterized with sub-pixel positioning, and cached on the GPU. Fortunately, the \code{RustType} \reference{Rus} library handled most this for us.
+Brainstorm has a set of data structures which handle drawing and texturing primitive triangles to the screen, which are used as building blocks to represent buttons and sliders. Text labels were challenging; in order to render text, a font must be loaded and parsed, the correct glyphs must be chosen, laid out and rasterized with sub-pixel positioning, and then cached on the GPU for performance. We used the \code{RustType} \reference{Rus} library to do most of this for us.
 
-Next we made a UI system to do centralized initialization, rendering and event handling for all UI elements. In order to make the UI elements interact with the rest of the application, we created a \code{State} struct that holds all the settings we could change at runtime, and pass around a reference to it to the various subsystems, such as the GUI and particle engines. Each UI element can then be loaded with a function that takes a mutable reference to the \code{State} struct and changes it as pre-programmed.
+All GUI code is centralized in a separate GUI subsystem that handles  initialization, rendering and event handling for all UI elements. In order to make the UI elements interact with the rest of the application, a \code{State} struct is created that holds all the settings that can change at runtime, and pass around a reference to it to the various subsystems, such as the GUI and particle engines. Each UI element can then be loaded with a function that takes a mutable reference to the \code{State} struct and changes it according to the state and interactions with the UI element.
 
 \subsubsection*{Handling files}
 
-File picking is a difficult problem on desktop platform, let alone on the web. Fortunately, the \code{nfd} \reference{nfd} crate provided us with bindings to the C library \code{Native File Dialog} \reference{Nat}, which abstracts away the difference between the native file picker API's on the three main desktop platforms --- Windows, Linux and Mac OS X.
+File picking is a difficult problem on desktop platform, let alone on the web. On the desktop side, Brainstorm uses the \code{nfd} \reference{nfd} crate that provides bindings to the C library \code{Native File Dialog} \reference{Nat}. This library abstracts away the differences between the native file picker API's on the three main desktop platforms --- Windows, Linux and Mac OS X.
 
-The web required a completely different approach, however. Using \code{stdweb} for bindings, we created a small API in JavaScript that provided several functions:
+The web required a completely different approach. Using \code{stdweb} for bindings, we created a small API in JavaScript that provided several functions:
 
 \begin{easylist}
     \ListProperties(Space*=-3pt)
@@ -96,11 +94,9 @@ The web required a completely different approach, however. Using \code{stdweb} f
     & Get the path of the last picked file.
 \end{easylist}
 
-With this API we can retrieve the Base64-encoded file chosen by the user as soon as the browser is finished loading it. After that we decode it to a regular byte stream and can use it as if it was loaded from disk.
+This API lets Brainstorm retrieve the Base64-encoded file chosen by the user as soon as the browser is finished loading it. After that it is decoded to a regular byte stream and can be used it as if it was loaded from disk.
 
 \subsection*{Data format}
-
-% TODO: segway from the previous section by bringing up data agnosticism or whatever
 
 This project uses the dataset of Gordon Kindlmann's brain \reference{Dif}. The dataset is in the NRRD data format, consisting of a header which provides information about the way the data is structured, and a body which provides the actual data. NRRD is a flexible data format, but our program currently only supports a subset of it which conforms closely to the format described in \reference{Dif}.
 
