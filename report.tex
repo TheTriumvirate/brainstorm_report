@@ -113,7 +113,7 @@ The data body consists of an array of 32 bit floating point values in raw data (
   \centering
     \includegraphics[width=6cm]{STgeneric}
     \raggedright
-    Fig. 1: Elliptical (anisotropic) tensor representation. CC-BY-SA 2.5 via \url{https://commons.wikimedia.org/wiki/File:STgeneric.png}
+    \textit{Fig. 1: Elliptical (anisotropic) tensor representation. CC-BY-SA 2.5 via \url{https://commons.wikimedia.org/wiki/File:STgeneric.png}}
     \vspace{-2.5cm}
 \end{wrapfigure}
 
@@ -165,6 +165,16 @@ Furthermore, the following optimizations were added, possibly sacrificing comple
 & We used a nearest neighbor interpolation scheme to avoid having to do trilinear interpolation for every step\footnote{A recently discovered bug reveals that in fact, truncation was used instead of rounding (as nearest neighbor would do), but the result is presumed to be close enough for datasets of reasonably high resolution}
 & If the particle's path reached a point where the FA value was zero, it would immediately disqualify the starting point path and move on, assuming that this particle would be destroyed when reaching this point while the program runs
 \end{easylist}
+
+\begin{figure}[h]
+    \makebox[5cm][l] {
+        \includegraphics[width=5cm]{pts1}
+    }
+    \makebox[0.5\textwidth][l] {
+        \includegraphics[height=5.92cm]{pts2}
+    }\\
+    \textit{Fig. 2: The generated seeding points seen from behind the brain (left) and on the side (right).}
+\end{figure}
 
 \subsubsection*{Output: Custom data format}
 
