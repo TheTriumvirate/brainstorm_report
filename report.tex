@@ -73,15 +73,25 @@ Rust compiles to all targets that LLVM can compile to, leading to broad platform
 
 To get around this, we used the \code{stdweb} \reference{std} library. \code{stdweb} sets up the webpage and handles all calls between JavaScript and Rust automatically so there's no need to manually create external interfaces and callbacks. We also used the \code{cargo-web} \reference{car} tool to automate building the project as a website as well as running the project on a local web-server for testing.
 
-The next obstacle for cross-platform support was rendering and GUI. Rust GUI libraries are few and immature, and our needs were very specific as Brainstorm requires direct access to OpenGL shaders. We also did not find any GUI libraries which could run on both OpenGL and WebGL. That left us to implement our own basic GUI toolkit from scratch.
+The next obstacle for cross-platform support was rendering and GUI\@. Rust GUI libraries are few and immature, and our needs were very specific as Brainstorm requires direct access to OpenGL shaders. We also did not find any GUI libraries which could run on both OpenGL and WebGL\@. That left us to implement our own basic GUI toolkit from scratch.
 
 To avoid having to maintain separate versions of code for both OpenGL and WebGL, we created a layer of abstraction over the two APIs. Fortunately, we were not the first to do this. \code{Kiss3D} \reference{Kis} is a simple 3D graphics engine written in Rust that can render to both OpenGL and WebGL, which our OpenGL/WebGL abstraction layer heavily borrows and copies from. This made OpenGL and WebGL calls identical for the rest of the code base with the correct bindings being determined at compile-time, making our codebase much simpler.
 
 \subsubsection*{Writing a GUI toolkit from scratch}
 
+\begin{wrapfigure}{r}{6cm}
+  \centering
+    \includegraphics[width=6cm]{ui.png}
+    \raggedright%
+    \textit{Fig. 1: The Brainstorm GUI}
+    \vspace{1cm}
+\end{wrapfigure}
+
 Brainstorm has a set of data structures which handle drawing and texturing primitive triangles to the screen, which are used as building blocks to represent buttons and sliders. Text labels were challenging; in order to render text, a font must be loaded and parsed, the correct glyphs must be chosen, laid out and rasterized with sub-pixel positioning, and then cached on the GPU for performance. We used the \code{RustType} \reference{Rus} library to do most of this for us.
 
+
 All GUI code is centralized in a separate GUI subsystem that handles  initialization, rendering and event handling for all UI elements. In order to make the UI elements interact with the rest of the application, a \code{State} struct is created that holds all the settings that can change at runtime, and pass around a reference to it to the various subsystems, such as the GUI and particle engines. Each UI element can then be loaded with a function that takes a mutable reference to the \code{State} struct and changes it according to the state and interactions with the UI element.
+
 
 \subsubsection*{Handling files}
 
@@ -106,15 +116,15 @@ The choice of this data format was three-fold: First, it is simple to work with 
 
 To translate this data into a format directly understandable by our program, we made a preprocessor accepting NRRD data of the given format, which spits out the data as a serialized byte array which can be deserialized and used directly by our program. This enables us to store preprocessed data in a file for rapid loading, while also allowing the program to load NRRD data on the fly. Furthermore, it enables an easy way to extend the data in the preprocessing stage through further analysis or even manual inspection by experts before loading it into the program, which may be made capable of interpreting the extensions of this data (see \secref{prepro}{Pre-processing data analysis} for an example).
 
-The data body consists of an array of 32 bit floating point values in raw data, which are uniformly spaced measurements arrayed in memory in a 2D-slice-by-slice manner. The Z axis orders the slices such that higher Z memory indices indicate a higher spatial position of the slice. Thus, the coordinate (X, Y, Z) refers to the measurement in the Yth row and Xth column in the Zth slice of the data from the bottom. Our particle engine (in the initial rotation) uses the programming convention that the X and Y axes correspond to the computer screen's coordinate system, and Z indicates depth. This discrepancy was solved by rearranging the structure of the data in the preprocessing stage.
-
 \begin{wrapfigure}{r}{6cm}
   \centering
     \includegraphics[width=6cm]{STgeneric}
-    \raggedright
-    \textit{Fig. 1: Elliptical (anisotropic) tensor representation. CC-BY-SA 2.5 via \url{https://commons.wikimedia.org/wiki/File:STgeneric.png}}
-    \vspace{-2cm}
+    \raggedright%
+    \textit{Fig. 2: Elliptical (anisotropic) tensor representation. CC-BY-SA 2.5 via \url{https://commons.wikimedia.org/wiki/File:STgeneric.png}}
+    %\vspace{-2cm}
 \end{wrapfigure}
+
+The data body consists of an array of 32 bit floating point values in raw data, which are uniformly spaced measurements arrayed in memory in a 2D-slice-by-slice manner. The Z axis orders the slices such that higher Z memory indices indicate a higher spatial position of the slice. Thus, the coordinate (X, Y, Z) refers to the measurement in the Yth row and Xth column in the Zth slice of the data from the bottom. Our particle engine (in the initial rotation) uses the programming convention that the X and Y axes correspond to the computer screen's coordinate system, and Z indicates depth. This discrepancy was solved by rearranging the structure of the data in the preprocessing stage.
 
 Each voxel in the dataset consists of a 7-dimensional vector of this format: (Confidence, Dxx, Dxy, Dxz, Dyy, Dyz, Dzz), where:
 
@@ -175,7 +185,7 @@ Furthermore, the following optimizations were added, possibly sacrificing accura
     \makebox[0.5\textwidth][l] {
         \includegraphics[height=5.92cm]{pts2}
     }\\
-    \textit{Fig. 2: The generated seeding points seen from behind the brain (left) and on the side (right).}
+    \textit{Fig. 3: The generated seeding points seen from behind the brain (left) and on the side (right).}
 \end{figure}
 
 \subsubsection*{Output: Custom data format}
@@ -208,6 +218,16 @@ The CPU based particle renderer was our first attempt at drawing particles. It s
 
 While the CPU based approach works well, it could not support as many particles as we wanted. The approach would also make streamlets (fading trails behind the particles) difficult to implement, and would further reduce the number of particles on-screen. One approach to increase it would be to add multi-threading, but this would not work on the web due to WebAssembly limitations. We therefore decided to try a GPU based approach.
 
+\begin{figure}[h]
+    \makebox[5cm][l] {
+        \includegraphics[width=5cm]{cpu.png}
+    }
+    \makebox[0.5\textwidth][l] {
+        \includegraphics[height=5.45cm]{gpu.png}
+    }\\
+    \textit{Fig. 4: CPU particles (left) and GPU particles (right)}
+\end{figure}
+
 % NOTE: Again, this is a simplified summary and does not account for any implementation details of the actual shaders used...
 The GPU based particle rendering keeps track of an array of 3D textures, where the length of the array determines the length of the streamlets. Each texture represents the state of the particle system at a given frame, and each pixel represents the position of a single particle. In order to update the positions, we do the following:
 
@@ -239,7 +259,7 @@ Here are some ideas for enhancements and improvements to the Brainstorm applicat
 & Selecting between different interpolation schemes (e.g. Euler, Runge-Kutta).
 & Additional sliders for particle counts, transparency, etc.
 & Data generation to play with different random vector fields.
-& Improving the high- and low-pass filters to "obstruct" particles physically rather than destroying and respawning them.
+& Improving the high- and low-pass filters to ``obstruct'' particles physically rather than destroying and respawning them.
     && Likely a difficult task, but would likely significantly improve the visibility of nerve structures in the brain DTI scans.
 & Visualizing probabilistic paths by using the less significant tensor vectors as an uncertainty measure.
     && Also a time-consuming task, but would leverage a strength of visualizing using particle fields rather than streamlines.
